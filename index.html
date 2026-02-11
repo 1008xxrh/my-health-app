@@ -345,6 +345,46 @@
         let records = [];
         let editingId = null; // 編集中の記録ID
 
+        // 画像を圧縮する関数
+        async function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // キャンバスを作成
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // 最大幅を1200pxに設定
+                        const maxWidth = 1200;
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // 横幅が1200pxを超える場合は縮小
+                        if (width > maxWidth) {
+                            height = (height * maxWidth) / width;
+                            width = maxWidth;
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        // 画像を描画
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // 圧縮してBase64に変換（品質85%）
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                        resolve(compressedDataUrl);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
         // 初期化
         async function init() {
             await loadRecords();
@@ -389,16 +429,17 @@
                 return;
             }
 
-            // 画像を処理
+            // 画像を処理（圧縮）
             let imageData = null;
             if (imageInput.files.length > 0) {
-                const file = imageInput.files[0];
-                imageData = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
+                try {
+                    const file = imageInput.files[0];
+                    imageData = await compressImage(file);
+                    console.log('画像を圧縮しました');
+                } catch (error) {
+                    alert('画像の処理に失敗しました: ' + error.message);
+                    return;
+                }
             }
 
             if (editingId) {
