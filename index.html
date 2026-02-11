@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="シンプルな病気の経過観察アプリ">
+    <meta name="theme-color" content="#007aff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="健康記録">
+    <title>健康記録</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%23007aff' width='192' height='192' rx='48'/%3E%3Cpath fill='white' d='M96 48c-8.8 0-16 7.2-16 16v16H64c-8.8 0-16 7.2-16 16v32c0 8.8 7.2 16 16 16h16v16c0 8.8 7.2 16 16 16h32c8.8 0 16-7.2 16-16v-16h16c8.8 0 16-7.2 16-16V96c0-8.8-7.2-16-16-16h-16V64c0-8.8-7.2-16-16-16H96zm0 16h32v24c0 4.4 3.6 8 8 8h24v32h-24c-4.4 0-8 3.6-8 8v24H96v-24c0-4.4-3.6-8-8-8H64V96h24c4.4 0 8-3.6 8-8V64z'/%3E%3C/svg%3E">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            padding-bottom: 60px;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .input-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-size: 14px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        button {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #0051d5;
+        }
+
+        button:active {
+            background: #004bb5;
+        }
+
+        .records {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .record {
+            border-bottom: 1px solid #eee;
+            padding: 15px 0;
+        }
+
+        .record:last-child {
+            border-bottom: none;
+        }
+
+        .record-date {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .record-symptoms {
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .record-notes {
+            color: #888;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+
+        .delete-btn {
+            background: #ff3b30;
+            padding: 6px 12px;
+            font-size: 14px;
+            margin-top: 8px;
+            width: auto;
+        }
+
+        .delete-btn:hover {
+            background: #d62d23;
+        }
+
+        .delete-btn:active {
+            background: #b62318;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        .install-prompt {
+            background: #007aff;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,122,255,0.3);
+            display: none;
+        }
+
+        .install-prompt.show {
+            display: block;
+        }
+
+        .install-prompt p {
+            margin-bottom: 10px;
+        }
+
+        .install-btn {
+            background: white;
+            color: #007aff;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        .dismiss-btn {
+            background: transparent;
+            color: white;
+            padding: 10px 20px;
+            border: 1px solid white;
+            border-radius: 4px;
+        }
+
+        /* iOS Safari用のセーフエリア対応 */
+        @supports (padding: max(0px)) {
+            body {
+                padding-left: max(20px, env(safe-area-inset-left));
+                padding-right: max(20px, env(safe-area-inset-right));
+                padding-bottom: max(60px, env(safe-area-inset-bottom));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="installPrompt" class="install-prompt">
+        <p>📱 このアプリをホーム画面に追加できます</p>
+        <button class="install-btn" onclick="installApp()">追加する</button>
+        <button class="dismiss-btn" onclick="dismissInstall()">後で</button>
+    </div>
+
+    <div class="header">
+        <h1>健康記録</h1>
+        <p style="color: #888; font-size: 14px;">日々の症状や体調を記録しましょう</p>
+    </div>
+
+    <div class="input-section">
+        <div class="form-group">
+            <label for="date">日付</label>
+            <input type="date" id="date" required>
+        </div>
+
+        <div class="form-group">
+            <label for="symptoms">症状</label>
+            <input type="text" id="symptoms" placeholder="例: 頭痛、発熱" required>
+        </div>
+
+        <div class="form-group">
+            <label for="notes">メモ</label>
+            <textarea id="notes" placeholder="詳細な状況や気づいたことを記録"></textarea>
+        </div>
+
+        <button onclick="addRecord()">記録する</button>
+    </div>
+
+    <div class="records">
+        <h2 style="margin-bottom: 15px; font-size: 18px;">記録一覧</h2>
+        <div id="recordsList" class="loading">読み込み中...</div>
+    </div>
+
+    <script>
+        // Service Workerの登録
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker登録成功'))
+                    .catch(err => console.log('Service Worker登録失敗:', err));
+            });
+        }
+
+        // PWAインストールプロンプト
+        let deferredPrompt;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installPrompt').classList.add('show');
+        });
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    deferredPrompt = null;
+                    document.getElementById('installPrompt').classList.remove('show');
+                });
+            }
+        }
+
+        function dismissInstall() {
+            document.getElementById('installPrompt').classList.remove('show');
+        }
+
+        // 今日の日付をデフォルトで設定
+        document.getElementById('date').valueAsDate = new Date();
+
+        let records = [];
+
+        // 初期化
+        async function init() {
+            await loadRecords();
+            displayRecords();
+        }
+
+        // 記録を読み込む
+        async function loadRecords() {
+            try {
+                const result = await window.storage.get('health_records');
+                if (result && result.value) {
+                    records = JSON.parse(result.value);
+                } else {
+                    records = [];
+                }
+            } catch (error) {
+                console.log('初回起動またはデータなし');
+                records = [];
+            }
+        }
+
+        // 記録を保存
+        async function saveRecords() {
+            try {
+                await window.storage.set('health_records', JSON.stringify(records));
+                return true;
+            } catch (error) {
+                alert('保存に失敗しました: ' + error.message);
+                return false;
+            }
+        }
+
+        // 記録を追加
+        async function addRecord() {
+            const date = document.getElementById('date').value;
+            const symptoms = document.getElementById('symptoms').value.trim();
+            const notes = document.getElementById('notes').value.trim();
+
+            if (!date || !symptoms) {
+                alert('日付と症状を入力してください');
+                return;
+            }
+
+            const record = {
+                id: Date.now().toString(),
+                date: date,
+                symptoms: symptoms,
+                notes: notes,
+                timestamp: new Date().toISOString()
+            };
+
+            records.unshift(record);
+            const saved = await saveRecords();
+
+            if (saved) {
+                // フォームをリセット
+                document.getElementById('symptoms').value = '';
+                document.getElementById('notes').value = '';
+                document.getElementById('date').valueAsDate = new Date();
+
+                displayRecords();
+            }
+        }
+
+        // 記録を削除
+        async function deleteRecord(id) {
+            if (!confirm('この記録を削除してもよろしいですか?')) {
+                return;
+            }
+
+            records = records.filter(r => r.id !== id);
+            await saveRecords();
+            displayRecords();
+        }
+
+        // 記録を表示
+        function displayRecords() {
+            const container = document.getElementById('recordsList');
+
+            if (records.length === 0) {
+                container.innerHTML = '<div class="empty-state">まだ記録がありません</div>';
+                return;
+            }
+
+            const html = records.map(record => `
+                <div class="record">
+                    <div class="record-date">${formatDate(record.date)}</div>
+                    <div class="record-symptoms">症状: ${escapeHtml(record.symptoms)}</div>
+                    ${record.notes ? `<div class="record-notes">${escapeHtml(record.notes)}</div>` : ''}
+                    <button class="delete-btn" onclick="deleteRecord('${record.id}')">削除</button>
+                </div>
+            `).join('');
+
+            container.innerHTML = html;
+        }
+
+        // 日付フォーマット
+        function formatDate(dateString) {
+            const date = new Date(dateString + 'T00:00:00');
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+            const weekday = weekdays[date.getDay()];
+
+            return `${year}年${month}月${day}日 (${weekday})`;
+        }
+
+        // HTMLエスケープ
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // アプリ起動
+        init();
+    </script>
+</body>
+</html>
