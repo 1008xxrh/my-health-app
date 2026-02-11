@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -127,6 +126,31 @@
             white-space: pre-wrap;
         }
 
+        .record-image {
+            margin-top: 10px;
+            border-radius: 8px;
+            max-width: 100%;
+            cursor: pointer;
+        }
+
+        .image-preview img {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            margin-top: 5px;
+        }
+
+        .remove-image {
+            background: #ff3b30;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+
         .delete-btn {
             background: #ff3b30;
             padding: 6px 12px;
@@ -228,6 +252,12 @@
             <textarea id="notes" placeholder="詳細な状況や気づいたことを記録"></textarea>
         </div>
 
+        <div class="form-group">
+            <label for="image">画像（任意）</label>
+            <input type="file" id="image" accept="image/*" capture="environment" style="padding: 8px;">
+            <div id="imagePreview" style="margin-top: 10px;"></div>
+        </div>
+
         <button onclick="addRecord()">記録する</button>
     </div>
 
@@ -287,6 +317,31 @@
         // 今日の日付をデフォルトで設定
         document.getElementById('date').valueAsDate = new Date();
 
+        // 画像プレビュー
+        document.getElementById('image').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const preview = document.getElementById('imagePreview');
+            
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.innerHTML = `
+                        <div class="image-preview">
+                            <img src="${e.target.result}" alt="プレビュー">
+                            <br>
+                            <button type="button" class="remove-image" onclick="removeImagePreview()">画像を削除</button>
+                        </div>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function removeImagePreview() {
+            document.getElementById('image').value = '';
+            document.getElementById('imagePreview').innerHTML = '';
+        }
+
         let records = [];
         let editingId = null; // 編集中の記録ID
 
@@ -327,10 +382,23 @@
             const date = document.getElementById('date').value;
             const symptoms = document.getElementById('symptoms').value.trim();
             const notes = document.getElementById('notes').value.trim();
+            const imageInput = document.getElementById('image');
 
             if (!date || !symptoms) {
                 alert('日付と症状を入力してください');
                 return;
+            }
+
+            // 画像を処理
+            let imageData = null;
+            if (imageInput.files.length > 0) {
+                const file = imageInput.files[0];
+                imageData = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
             }
 
             if (editingId) {
@@ -342,6 +410,7 @@
                         date: date,
                         symptoms: symptoms,
                         notes: notes,
+                        image: imageData || records[index].image, // 新しい画像がなければ既存を保持
                         updatedAt: new Date().toISOString()
                     };
                 }
@@ -354,6 +423,7 @@
                     date: date,
                     symptoms: symptoms,
                     notes: notes,
+                    image: imageData,
                     timestamp: new Date().toISOString()
                 };
                 records.unshift(record);
@@ -365,6 +435,8 @@
                 // フォームをリセット
                 document.getElementById('symptoms').value = '';
                 document.getElementById('notes').value = '';
+                document.getElementById('image').value = '';
+                document.getElementById('imagePreview').innerHTML = '';
                 document.getElementById('date').valueAsDate = new Date();
 
                 displayRecords();
@@ -381,6 +453,20 @@
             document.getElementById('date').value = record.date;
             document.getElementById('symptoms').value = record.symptoms;
             document.getElementById('notes').value = record.notes || '';
+            
+            // 画像プレビュー表示
+            const preview = document.getElementById('imagePreview');
+            if (record.image) {
+                preview.innerHTML = `
+                    <div class="image-preview">
+                        <img src="${record.image}" alt="プレビュー">
+                        <br>
+                        <button type="button" class="remove-image" onclick="removeImagePreview()">画像を削除</button>
+                    </div>
+                `;
+            } else {
+                preview.innerHTML = '';
+            }
 
             // 編集モードに設定
             editingId = id;
@@ -415,6 +501,7 @@
                     <div class="record-date">${formatDate(record.date)}</div>
                     <div class="record-symptoms">症状: ${escapeHtml(record.symptoms)}</div>
                     ${record.notes ? `<div class="record-notes">${escapeHtml(record.notes)}</div>` : ''}
+                    ${record.image ? `<img src="${record.image}" alt="記録画像" class="record-image" onclick="viewImage('${record.id}')">` : ''}
                     <div style="margin-top: 8px; display: flex; gap: 8px;">
                         <button class="delete-btn" style="background: #ff9500;" onclick="editRecord('${record.id}')">編集</button>
                         <button class="delete-btn" onclick="deleteRecord('${record.id}')">削除</button>
@@ -423,6 +510,30 @@
             `).join('');
 
             container.innerHTML = html;
+        }
+
+        // 画像を拡大表示
+        function viewImage(id) {
+            const record = records.find(r => r.id === id);
+            if (!record || !record.image) return;
+
+            // 新しいウィンドウで画像を表示
+            const win = window.open('', '_blank');
+            win.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+                        img { max-width: 100%; max-height: 100vh; }
+                    </style>
+                </head>
+                <body>
+                    <img src="${record.image}" alt="記録画像">
+                </body>
+                </html>
+            `);
         }
 
         // 日付フォーマット
