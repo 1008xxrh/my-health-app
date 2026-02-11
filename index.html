@@ -231,8 +231,15 @@
     </div>
 
     <div class="records">
-        <h2 style="margin-bottom: 15px; font-size: 18px;">記録一覧</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="font-size: 18px; margin: 0;">記録一覧</h2>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="importData()" style="width: auto; padding: 8px 16px; font-size: 14px; background: #34c759;">インポート</button>
+                <button onclick="exportData()" style="width: auto; padding: 8px 16px; font-size: 14px; background: #5856d6;">エクスポート</button>
+            </div>
+        </div>
         <div id="recordsList" class="loading">読み込み中...</div>
+        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="handleImport(event)">
     </div>
 
     <script>
@@ -282,9 +289,9 @@
         // 記録を読み込む
         async function loadRecords() {
             try {
-                const result = await window.storage.get('health_records');
-                if (result && result.value) {
-                    records = JSON.parse(result.value);
+                const data = localStorage.getItem('health_records');
+                if (data) {
+                    records = JSON.parse(data);
                 } else {
                     records = [];
                 }
@@ -297,7 +304,7 @@
         // 記録を保存
         async function saveRecords() {
             try {
-                await window.storage.set('health_records', JSON.stringify(records));
+                localStorage.setItem('health_records', JSON.stringify(records));
                 return true;
             } catch (error) {
                 alert('保存に失敗しました: ' + error.message);
@@ -390,6 +397,75 @@
 
         // アプリ起動
         init();
+
+        // データをエクスポート
+        function exportData() {
+            if (records.length === 0) {
+                alert('エクスポートする記録がありません');
+                return;
+            }
+
+            const dataStr = JSON.stringify(records, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            const today = new Date().toISOString().split('T')[0];
+            a.href = url;
+            a.download = `健康記録_${today}.json`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+            alert(`${records.length}件の記録をエクスポートしました`);
+        }
+
+        // インポートファイル選択
+        function importData() {
+            document.getElementById('importFile').click();
+        }
+
+        // インポート処理
+        async function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const importedRecords = JSON.parse(e.target.result);
+                    
+                    if (!Array.isArray(importedRecords)) {
+                        alert('無効なファイル形式です');
+                        return;
+                    }
+
+                    const confirmMsg = `${importedRecords.length}件の記録をインポートします。\n現在の記録(${records.length}件)に追加されます。\nよろしいですか?`;
+                    
+                    if (!confirm(confirmMsg)) {
+                        return;
+                    }
+
+                    // 既存の記録と統合（重複を避ける）
+                    const existingIds = new Set(records.map(r => r.id));
+                    const newRecords = importedRecords.filter(r => !existingIds.has(r.id));
+                    
+                    records = [...records, ...newRecords];
+                    // 日付順にソート（新しい順）
+                    records.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    
+                    await saveRecords();
+                    displayRecords();
+                    
+                    alert(`${newRecords.length}件の記録をインポートしました`);
+                } catch (error) {
+                    alert('ファイルの読み込みに失敗しました: ' + error.message);
+                }
+            };
+            
+            reader.readAsText(file);
+            // ファイル選択をリセット（同じファイルを再度選択可能にする）
+            event.target.value = '';
+        }
     </script>
 </body>
 </html>
