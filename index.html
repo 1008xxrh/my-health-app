@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -287,6 +288,7 @@
         document.getElementById('date').valueAsDate = new Date();
 
         let records = [];
+        let editingId = null; // 編集中の記録ID
 
         // 初期化
         async function init() {
@@ -320,7 +322,7 @@
             }
         }
 
-        // 記録を追加
+        // 記録を追加または更新
         async function addRecord() {
             const date = document.getElementById('date').value;
             const symptoms = document.getElementById('symptoms').value.trim();
@@ -331,15 +333,32 @@
                 return;
             }
 
-            const record = {
-                id: Date.now().toString(),
-                date: date,
-                symptoms: symptoms,
-                notes: notes,
-                timestamp: new Date().toISOString()
-            };
+            if (editingId) {
+                // 編集モード：既存の記録を更新
+                const index = records.findIndex(r => r.id === editingId);
+                if (index !== -1) {
+                    records[index] = {
+                        ...records[index],
+                        date: date,
+                        symptoms: symptoms,
+                        notes: notes,
+                        updatedAt: new Date().toISOString()
+                    };
+                }
+                editingId = null;
+                document.querySelector('.input-section button').textContent = '記録する';
+            } else {
+                // 新規追加モード
+                const record = {
+                    id: Date.now().toString(),
+                    date: date,
+                    symptoms: symptoms,
+                    notes: notes,
+                    timestamp: new Date().toISOString()
+                };
+                records.unshift(record);
+            }
 
-            records.unshift(record);
             const saved = await saveRecords();
 
             if (saved) {
@@ -349,7 +368,26 @@
                 document.getElementById('date').valueAsDate = new Date();
 
                 displayRecords();
+                window.scrollTo(0, 0); // 画面トップへスクロール
             }
+        }
+
+        // 記録を編集
+        function editRecord(id) {
+            const record = records.find(r => r.id === id);
+            if (!record) return;
+
+            // フォームに値をセット
+            document.getElementById('date').value = record.date;
+            document.getElementById('symptoms').value = record.symptoms;
+            document.getElementById('notes').value = record.notes || '';
+
+            // 編集モードに設定
+            editingId = id;
+            document.querySelector('.input-section button').textContent = '更新する';
+
+            // 入力エリアまでスクロール
+            window.scrollTo(0, 0);
         }
 
         // 記録を削除
@@ -377,7 +415,10 @@
                     <div class="record-date">${formatDate(record.date)}</div>
                     <div class="record-symptoms">症状: ${escapeHtml(record.symptoms)}</div>
                     ${record.notes ? `<div class="record-notes">${escapeHtml(record.notes)}</div>` : ''}
-                    <button class="delete-btn" onclick="deleteRecord('${record.id}')">削除</button>
+                    <div style="margin-top: 8px; display: flex; gap: 8px;">
+                        <button class="delete-btn" style="background: #ff9500;" onclick="editRecord('${record.id}')">編集</button>
+                        <button class="delete-btn" onclick="deleteRecord('${record.id}')">削除</button>
+                    </div>
                 </div>
             `).join('');
 
